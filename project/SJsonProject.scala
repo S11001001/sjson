@@ -8,21 +8,21 @@ object SJsonProject extends Build
   lazy val commonSettings: Seq[Setting[_]] = Seq(
     organization := "net.debasishg",
     version := "0.19",
-    scalaVersion := "2.10.0",
+    scalaVersion := "2.10.3",
     scalacOptions ++= Seq("-deprecation", "-unchecked", "-feature", "-language:postfixOps", "-language:implicitConversions", "-language:existentials")
   )
 
   lazy val coreSettings = commonSettings ++ Seq(
     name := "sjson",
 
-    libraryDependencies ++=
+    libraryDependencies <++= scalaVersion(sv =>
         Seq(
-          "org.scala-lang"    %  "scala-compiler"         % "2.10.0",
+          "org.scala-lang"    %  "scala-reflect"         % sv,
           "net.databinder"    %% "dispatch-json"         % "0.8.9",
           "commons-io"        %  "commons-io"            % "1.4",
           "org.objenesis"     %  "objenesis"             % "1.2",
-          "junit"             %  "junit"                 % "4.8.1"        % "test",
-          "org.scalatest"     %% "scalatest"             % "2.0.M6-SNAP6" % "test"),
+          "junit"             %  "junit"                 % "4.11"  % "test",
+          "org.scalatest"     %% "scalatest"             % "2.1.0" % "test")),
 
     parallelExecution in Test := false,
     publishTo <<= version { (v: String) => 
