@@ -50,11 +50,18 @@ object Util {
 
   def mkNum(v: Any, c: Class[_]) = {
     v match {
-      case b: BigDecimal =>
+      case b: math.ScalaNumericConversions =>
         if (c.isAssignableFrom(classOf[Int])) b.intValue
         else if (c.isAssignableFrom(classOf[Long])) b.longValue
         else if (c.isAssignableFrom(classOf[Float])) b.floatValue
         else if (c.isAssignableFrom(classOf[Double])) b.doubleValue
+        else if (c.isAssignableFrom(classOf[Short])) b.shortValue
+        else b
+      case b: java.lang.Double =>
+        if (c.isAssignableFrom(classOf[Int])) b.intValue
+        else if (c.isAssignableFrom(classOf[Long])) b.longValue
+        else if (c.isAssignableFrom(classOf[Float])) b.floatValue
+        else if (c.isAssignableFrom(classOf[Double])) b
         else if (c.isAssignableFrom(classOf[Short])) b.shortValue
         else b
       case _ => sys.error("unexpected")

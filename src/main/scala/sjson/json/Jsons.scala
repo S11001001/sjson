@@ -4,45 +4,48 @@ package json
 import java.util.TimeZone
 import scala.reflect.{ClassTag, classTag}
 import scala.reflect.runtime.universe._
-import dispatch.classic.json._
+import org.json4s.JsonAST._
 import Util._
 
 trait Jsons {
   /**
-   * Convert the <tt>JsValue</tt> to an instance of the class <tt>context</tt>, using the parent for 
+   * Convert the <tt>JValue</tt> to an instance of the class <tt>context</tt>, using the parent for 
    * any annotation hints. Returns an instance of <tt>T</tt>.
    * @todo handling arrays
-   * @todo handling default values. If the value of a field is not there in the JsObject, but the
+   * @todo handling default values. If the value of a field is not there in the JObject, but the
    *       field has a default value in the class, then populate the default value during de-serialization
    */
-  def fromJsObject[T: TypeTag](js: JsValue): T = {
+  def fromJsObject[T: TypeTag](js: JValue): T = {
     fromJsObject_impl(js, typeOf[T]).asInstanceOf[T]
   }
 
   import Serialize._
-  private[json] def fromJsObject_impl(js: JsValue, tpe: Type): Any = js match {
-    case JsObject(m) => {
+  private[json] def fromJsObject_impl(js: JValue, tpe: Type): Any = js match {
+    case JObject(o) => {
       val props =
         tpe.members
            .filter(!_.isMethod)
            .map(e => (substringFromLastSep(e.fullName, "."), e.typeSignature))
 
+      val m = o.toMap
       val nvs = 
         props.map {prop =>
           val name = prop._1
           val tp = prop._2
-          (newTermName(name), m.get(JsString(name)).map(in_impl(_, tp)).get)
+          (newTermName(name), m.get(name).map(in_impl(_, tp)).get)
         }
       instantiate(tpe, nvs.toMap)
     }
-    case _ => sys.error("Must be a JsObject")
+    case _ => sys.error("Must be a JObject")
   }
 
-  private[json] def extract(jsv: JsValue, tpe: Type): Any = {
+  private[json] def extract(jsv: JValue, tpe: Type): Any = {
     val ex = jsv match {
-      case JsNumber(n) => n
-      case JsString(s) => s 
-      case JsArray(l) => {
+      case JDouble(n) => n
+      case JDecimal(n) => n
+      case JInt(n) => n
+      case JString(s) => s 
+      case JArray(l) => {
         // deep serialization
         if (tpe <:< typeOf[Seq[_]]) {
           val intpe = tpe.typeSymbol.asType.typeParams.head.asType.toTypeIn(tpe)
@@ -52,9 +55,9 @@ trait Jsons {
           List()
         }
       }
-      case JsBoolean(b) => b
-      case JsNull => null
-      case JsObject(mp) => { // either Map or a Tuple2
+      case JBool(b) => b
+      case JNull => null
+      case JObject(mp) => { // either Map or a Tuple2
         // deep serialization
         val targs = tpe.typeSymbol.asType.typeParams.map(_.asType.toTypeIn(tpe))
         val (km, vm) = (targs.head, targs.last)

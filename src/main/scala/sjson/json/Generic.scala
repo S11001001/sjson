@@ -1,7 +1,7 @@
 package sjson
 package json
 
-import dispatch.classic.json._
+import org.json4s.JsonAST._
 trait Generic extends Protocol {
 
   import JsonSerialization._
@@ -9,9 +9,9 @@ trait Generic extends Protocol {
   implicit def listFormat[T](implicit fmt : Format[T]) : Format[List[T]];
 
   def viaSeq[S <: Iterable[T], T] (f: Seq[T] => S) (implicit fmt : Format[T]) : Format[S] = new Format[S] {
-    def writes(ts: S) = JsArray(ts.map(t => tojson(t)(fmt)).toList)
-    def reads(json: JsValue) = json match {
-      case JsArray(ts) => f(ts.map(t => fromjson[T](t)))
+    def writes(ts: S) = JArray(ts.map(t => tojson(t)(fmt)).toList)
+    def reads(json: JValue) = json match {
+      case JArray(ts) => f(ts.map(t => fromjson[T](t)))
       case _ => throw new RuntimeException("Collection expected")
     }
   }
@@ -28,10 +28,10 @@ trait Generic extends Protocol {
    * </pre>
    */
   def wrap[S, T](name: String)(to : S => T, from : T => S)(implicit fmt : Format[T]) = new Format[S]{
-    def writes(s : S) = JsObject(List((tojson(name).asInstanceOf[JsString], tojson(to(s)))))
-    def reads(js : JsValue) = js match {
-      case JsObject(m) =>
-        from(fromjson[T](m(JsString(name))))
+    def writes(s : S) = JObject(List((name, tojson(to(s)))))
+    def reads(js : JValue) = js match {
+      case JObject(m) =>
+        from(fromjson[T](m.collectFirst{case (`name`, v) => v}.get))
       case _ => throw new RuntimeException("Object expected")
     }
   }
@@ -42,7 +42,7 @@ trait Generic extends Protocol {
   def lazyFormat[S](fmt : => Format[S]) = new Format[S]{
     lazy val delegate = fmt;
 
-    def reads(js : JsValue) = delegate.reads(js);
+    def reads(js : JValue) = delegate.reads(js);
     def writes(s : S) = delegate.writes(s);
   }
 
@@ -53,18 +53,19 @@ trait Generic extends Protocol {
   def asProduct${i}[S, ${typeParams}](<#list 1..i as j>f${j}: String<#if i != j>,</#if></#list>)(apply : (${typeParams}) => S)(unapply : S => Product${i}[${typeParams}])(implicit <#list 1..i as j>bin${j}: Format[T${j}]<#if i != j>,</#if></#list>) = new Format[S]{
     def writes(s: S) = {
       val product = unapply(s)
-      JsObject(
+      JObject(
         List(
           <#list 1..i as j>
-          (tojson(f${j}).asInstanceOf[JsString], tojson(product._${j}))<#if i != j>,</#if>
+          (f${j}, tojson(product._${j}))<#if i != j>,</#if>
           </#list>
         ))
     }
-    def reads(js: JsValue) = js match {
-      case JsObject(m) => // m is the Map
+    def reads(js: JValue) = js match {
+      case JObject(o) =>
+        val m = o.toMap // m is the Map
         apply(
           <#list 1..i as j>
-          fromjson[T${j}](m(JsString(f${j})))<#if i != j>,</#if>
+          fromjson[T${j}](m(f${j}))<#if i != j>,</#if>
           </#list>
         )
       case _ => throw new RuntimeException("object expected")
@@ -77,19 +78,19 @@ trait Generic extends Protocol {
    * def asProduct3[S, T1, T2, T3](f1: String, f2: String, f3: String)(apply : (T1, T2, T3) => S)(unapply : S => Product3[T1, T2, T3])(implicit bin1: Format[T1], bin2: Format[T2], bin3: Format[T3]) = new Format[S]{
    *   def writes(s: S) = {
    *     val product = unapply(s)
-   *     JsObject(
+   *     JObject(
    *       List(
-   *         (tojson(f1).asInstanceOf[JsString], tojson(product._1)), 
-   *         (tojson(f2).asInstanceOf[JsString], tojson(product._2)), 
-   *         (tojson(f3).asInstanceOf[JsString], tojson(product._3)) 
+   *         (tojson(f1).asInstanceOf[JString], tojson(product._1)), 
+   *         (tojson(f2).asInstanceOf[JString], tojson(product._2)), 
+   *         (tojson(f3).asInstanceOf[JString], tojson(product._3)) 
    *     ))
    *   }
-   *   def reads(js: JsValue) = js match {
-   *     case JsObject(m) => // m is the Map
+   *   def reads(js: JValue) = js match {
+   *     case JObject(m) => // m is the Map
    *       apply(
-   *         fromjson[T1](m(JsString(f1))), 
-   *         fromjson[T2](m(JsString(f2))), 
-   *         fromjson[T3](m(JsString(f3)))
+   *         fromjson[T1](m(JString(f1))), 
+   *         fromjson[T2](m(JString(f2))), 
+   *         fromjson[T3](m(JString(f3)))
    *       )
    *     case _ => throw new RuntimeException("object expected")
    *   }
@@ -108,11 +109,11 @@ trait Generic extends Protocol {
     new Format[S]{
       val mappings = summands.toArray.zipWithIndex;
 
-      def reads(json : JsValue) : S = read(in)(summands(read[Byte](in)).format)
-      // def writes(ts: S) = JsArray(ts.map(t => tojson(t)(fmt)).toList)
-      // def reads(json: JsValue) = json match {
+      def reads(json : JValue) : S = read(in)(summands(read[Byte](in)).format)
+      // def writes(ts: S) = JArray(ts.map(t => tojson(t)(fmt)).toList)
+      // def reads(json: JValue) = json match {
 
-      def writes(ts: S) = JsArray(ts.map(t => tojson(t)(fmt)).toList)
+      def writes(ts: S) = JArray(ts.map(t => tojson(t)(fmt)).toList)
 
       def writes(out : Output, s : S): Unit =
         mappings.find(_._1.clazz.isInstance(s)) match {

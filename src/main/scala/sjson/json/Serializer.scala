@@ -10,7 +10,7 @@ import Util._
 object Serializer {
   trait SJSON extends JsBean {
   
-    import dispatch.classic.json._
+    import org.json4s.JsonAST._
     import dispatch.classic.json.Js._
     import java.io.{ObjectInputStream, ObjectOutputStream, ByteArrayInputStream, ByteArrayOutputStream}
     import org.apache.commons.io.input.ClassLoaderObjectInputStream
@@ -34,7 +34,7 @@ object Serializer {
      */
     def out(obj: AnyRef): Array[Byte] = {
       try {
-        JsValue.toJson(JsValue.apply(obj)).getBytes("UTF-8")
+        JValue.toJson(JValue.apply(obj)).getBytes("UTF-8")
       } catch {
         case e: scala.MatchError => toJSON(obj).getBytes("UTF-8")
       }
@@ -48,17 +48,17 @@ object Serializer {
       in[T](Js(json)) // (m)
     }
 
-    def in[T: TypeTag](js: JsValue): T = {
+    def in[T: TypeTag](js: JValue): T = {
       in_impl[T](js, typeOf[T])
     }
 
-    private[json] def in_impl[T: TypeTag](js: JsValue, tpe: Type): T = {
-      // Map and Tuple2 both are serialized as Maps wrapped within a JsObject
+    private[json] def in_impl[T: TypeTag](js: JValue, tpe: Type): T = {
+      // Map and Tuple2 both are serialized as Maps wrapped within a JObject
       if (tpe <:< typeOf[collection.immutable.Map[_, _]] ||
           tpe <:< typeOf[Tuple2[_, _]]) extractFromJs[T](js, tpe)
 
-      // beans are also serialized as JsObjects, but need to invoke fromJSON for beans
-      else if (js.isInstanceOf[JsObject]) 
+      // beans are also serialized as JObjects, but need to invoke fromJSON for beans
+      else if (js.isInstanceOf[JObject]) 
         fromJSON(js, Some(getClassFromScalaType(tpe).asInstanceOf[Class[T]]))
 
       // all other cases
@@ -66,18 +66,20 @@ object Serializer {
     }
 
 
-    private[json] def extractFromJs[T: TypeTag](jsv: JsValue, tpe: Type): T = {
+    private[json] def extractFromJs[T: TypeTag](jsv: JValue, tpe: Type): T = {
       val ex = jsv match {
-        case JsNumber(n) => n
-        case JsString(s) => s
-        case JsArray(l) => {
+        case JDouble(n) => n
+        case JDecimal(n) => n
+        case JInt(n) => n
+        case JString(s) => s
+        case JArray(l) => {
           // deep serialization
           val intpe = tpe.typeSymbol.asType.typeParams.head.asType.toTypeIn(tpe)
           l.map(in_impl(_, intpe))
         }
-        case JsBoolean(b) => b
-        case JsNull => null
-        case JsObject(mp) => { // either Map or a Tuple2
+        case JBool(b) => b
+        case JNull => null
+        case JObject(mp) => { // either Map or a Tuple2
           // deep serialization
           val targs = tpe.typeSymbol.asType.typeParams.map(_.asType.toTypeIn(tpe))
           val (km, vm) = (targs.head, targs.last)

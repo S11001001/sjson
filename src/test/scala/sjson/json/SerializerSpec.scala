@@ -13,7 +13,7 @@ import TestBeans._
 @RunWith(classOf[JUnitRunner])
 class SerializerSpec extends FunSpec with ShouldMatchers {
 
-  import dispatch.classic.json._
+  import org.json4s.JsonAST._
   import Js._
 
   private[this] val serializer = Serializer.SJSON
@@ -334,7 +334,7 @@ class SerializerSpec extends FunSpec with ShouldMatchers {
   }
 
   describe("Java List serialization") {
-    it("should give an instance of JsArray") {
+    it("should give an instance of JArray") {
       val l = new java.util.ArrayList[Int]
       l.add(1)
       l.add(2)
@@ -343,7 +343,7 @@ class SerializerSpec extends FunSpec with ShouldMatchers {
       val li = serializer.in[List[Int]](serializer.out(l.toList))
       li should equal(l.toList)
     }
-    it("should give another instance of JsArray") {
+    it("should give another instance of JArray") {
       val l = new java.util.ArrayList[String]
       l.add("a")
       l.add("b")

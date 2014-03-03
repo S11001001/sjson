@@ -10,7 +10,7 @@ import Jsons._
  */
 object Serialize {
   
-  import dispatch.classic.json._
+  import org.json4s.JsonAST._
   import Js._
   import java.io.{ObjectInputStream, ObjectOutputStream, ByteArrayInputStream, ByteArrayOutputStream}
   import org.apache.commons.io.input.ClassLoaderObjectInputStream
@@ -44,11 +44,11 @@ object Serialize {
     in[T](Js(json))
   }
 
-  def in[T: TypeTag](js: JsValue): T = {
+  def in[T: TypeTag](js: JValue): T = {
     in_impl(js, typeOf[T]).asInstanceOf[T]
   }
 
-  private[json] def in_impl(js: JsValue, tpe: Type): Any = {
+  private[json] def in_impl(js: JValue, tpe: Type): Any = {
 
     // special case: need to handle option differently
     // if option, then get the wrapped type
@@ -59,13 +59,13 @@ object Serialize {
     // this is a kludge since we serialize "none" as an empty list
     val kludge =
       js match {
-        case JsArray(l) if l.isEmpty => true
+        case JArray(l) if l.isEmpty => true
         case _ => false
       }
 
     // handle singleton types
     val single = js match {
-      case JsString(s) if s.endsWith("$") => processSingleton(s) match {
+      case JString(s) if s.endsWith("$") => processSingleton(s) match {
         case Left(e) => None
         case Right(o) => Some(o)
       }
@@ -80,17 +80,17 @@ object Serialize {
 
         else if (intpe <:< typeOf[Enumeration#Value]) {
           js match {
-            case JsString(s) => getEnumValue(s, intpe)
+            case JString(s) => getEnumValue(s, intpe)
             case _ => sys.error("Expected String for enum value")
           }
         }
 
-        // Map and Tuple2 both are serialized as Maps wrapped within a JsObject
+        // Map and Tuple2 both are serialized as Maps wrapped within a JObject
         else if (intpe <:< typeOf[collection.immutable.Map[_, _]] ||
             intpe <:< typeOf[Tuple2[_, _]]) extract(js, intpe)
 
-        // beans are also serialized as JsObjects, but need to invoke fromJSON for beans
-        else if (js.isInstanceOf[JsObject]) fromJsObject_impl(js, intpe)
+        // beans are also serialized as JObjects, but need to invoke fromJSON for beans
+        else if (js.isInstanceOf[JObject]) fromJsObject_impl(js, intpe)
 
         // all other cases
         else extract(js, intpe)

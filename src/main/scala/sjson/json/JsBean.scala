@@ -26,7 +26,7 @@ trait JsBean {
   import java.beans._
   
   import java.lang.reflect.Field
-  import dispatch.classic.json._
+  import org.json4s.JsonAST._
   import Util._
 
   private def getProps[T](clazz: Class[T]) = {
@@ -64,33 +64,37 @@ trait JsBean {
   }
 
   /**
-   * Process the <tt>JsValue</tt> and return the wrapped value. It may need to take care of two things:
-   * <li>in case of <tt>JsArray</tt>, need to map over and do a deep processing</li>
+   * Process the <tt>JValue</tt> and return the wrapped value. It may need to take care of two things:
+   * <li>in case of <tt>JArray</tt>, need to map over and do a deep processing</li>
    * <li>in case the field is annotated with an <tt>Option</tt> type that matches the wrapped type, then <tt>Some(obj)</tt></li>
    */
-  private def processJsValue(js: JsValue, f: Option[Field] = None): Any = js match {
-    case JsArray(l) =>  f match {
+  private def processJsValue(js: JValue, f: Option[Field] = None): Any = js match {
+    case JArray(l) =>  f match {
       case Some(fld) => makeOptionFromHint(l.map(j => processJsValue(j)), fld)
       case _ => l.map(j => processJsValue(j))
     }
-    case JsString(s) => f match {
+    case JString(s) => f match {
       case Some(fld) => makeOptionFromHint(s, fld)
       case _ => s
     }
-    case JsNumber(n) => f match {
+    case JDouble(n) => f match {
       case Some(fld) => makeOptionFromHint(n, fld)
       case _ => n
     }
-    case JsTrue => f match {
-      case Some(fld) => makeOptionFromHint(true, fld)
-      case _ => true
+    case JDecimal(n) => f match {
+      case Some(fld) => makeOptionFromHint(n, fld)
+      case _ => n
     }
-    case JsFalse => f match {
-      case Some(fld) => makeOptionFromHint(false, fld)
-      case _ => false
+    case JInt(n) => f match {
+      case Some(fld) => makeOptionFromHint(n, fld)
+      case _ => n
     }
-    case JsNull => null
-    case JsObject(m) => f match {
+    case JBool(b) => f match {
+      case Some(fld) => makeOptionFromHint(b, fld)
+      case _ => b
+    }
+    case JNull => null
+    case JObject(m) => f match {
       case Some(fld) => {
         val ann = fld.getAnnotation(classOf[OptionTypeHint]) 
         ann match {
@@ -98,26 +102,26 @@ trait JsBean {
             val jsType = fld.getAnnotation(classOf[JSONTypeHint])
 
             if (jsType != null) {
-              m.map {case (y1: JsValue, y2: JsValue) => 
-                (y1.self, fromJSON(y2, Some(jsType.value)))}
+              m.map {case (y1, y2: JValue) => 
+                (y1, fromJSON(y2, Some(jsType.value)))}.toMap
             } else { // just a Map
-              m.map {case (y1: JsValue, y2: JsValue) => 
-                (y1.self, processJsValue(y2))}
+              m.map {case (y1, y2: JValue) => 
+                (y1, processJsValue(y2))}.toMap
             }
 
           case x => 
             val jsType = fld.getAnnotation(classOf[JSONTypeHint])
 
             if (jsType != null) {
-              m.map {case (y1: JsValue, y2: JsValue) => 
-                (y1.self, Some(processJsValue(y2)))}
+              m.map {case (y1, y2: JValue) => 
+                (y1, Some(processJsValue(y2)))}.toMap
             } else Some(fromJSON(js, Some(x.value)))
         }
       }
       // no field: treat as a Map
       case None => 
-        m.map {case (y1: JsValue, y2: JsValue) => 
-          (y1.self, processJsValue(y2))
+        m.map {case (y1, y2: JValue) => 
+          (y1, processJsValue(y2))
         }
     }
   }
@@ -131,19 +135,22 @@ trait JsBean {
       Map() ++ 
         (ann match {
           case null =>
-            m.map {(p: ((_, _))) =>  p match {case (y1: JsValue, y2: JsValue) => 
-              (y1.self, processJsValue(y2, Some(field)))
+            m.map {(p: ((_, _))) =>  p match {case (y1: JValue, y2: JValue) => 
+              (y1.values, processJsValue(y2, Some(field)))
             }}
           case x if x.value.isPrimitive == true =>
             // remember all numbers are converted to BigDecimal by the JSON parser
-            m.map {(p: ((_, _))) => p match {case (y1: JsValue, y2: JsValue) =>
-              if (y2.isInstanceOf[JsNumber]) (y1.self, mkNum(y2.self.asInstanceOf[BigDecimal], ann.value))
-              else (y1.self, y2.self)
+            m.map {(p: ((_, _))) => p match {case (y1: JValue, y2: JValue) =>
+                     (y1.values,
+                      y2 match {
+                        case y2: JNumber => mkNumJ(y2, ann.value)
+                        case _ => y2.values
+                      })
             }}
           case _ =>
-            m.map {(p: ((_, _))) => p match {case (y1: JsValue, y2: JsValue) => y2 match {
-              case JsArray(l) => (y1.self, l.map(j => fromJSON(j, Some(ann.value), field)))
-              case _ => (y1.self, fromJSON(y2, Some(ann.value), field))
+            m.map {(p: ((_, _))) => p match {case (y1: JValue, y2: JValue) => y2 match {
+              case JArray(l) => (y1.values, l.map(j => fromJSON(j, Some(ann.value), field)))
+              case _ => (y1.values, fromJSON(y2, Some(ann.value), field))
             }}}
          }))
   }
@@ -152,18 +159,18 @@ trait JsBean {
    * Process Tuple2 recursively and consider the impact of a <tt>JSONTypeHint</tt> annotation.
    */
   private def processTuple2(t: Tuple2[_,_], field: Field) = {
-    val (t1: JsValue, t2: JsValue) = t
+    val (t1: JValue, t2: JValue) = t
     val ann = field.getAnnotation(classOf[JSONTypeHint])
     (Some(field), 
       (ann match {
         case null =>
-          (t1.self, t2.self)
+          (t1.values, t2.values)
         case x if x.value.isPrimitive == true =>
           // remember all numbers are converted to BigDecimal by the JSON parser
-          if (t2.isInstanceOf[JsNumber]) (t1.self, mkNum(t2.self.asInstanceOf[BigDecimal], ann.value))
-          else (t1.self, t2.self)
+          if (t2.isInstanceOf[JNumber]) (t1.values, mkNum(t2.values, ann.value))
+          else (t1.values, t2.values)
         case _ =>
-          (t1.self, fromJSON(t2, Some(ann.value), field))
+          (t1.values, fromJSON(t2, Some(ann.value), field))
        }))
   }
 
@@ -193,10 +200,10 @@ trait JsBean {
     enumObjectClass
   }
 
-  private[json] def fromJSON[T](js: JsValue, context: Option[Class[T]], parent: Field): T = {
+  private[json] def fromJSON[T](js: JValue, context: Option[Class[T]], parent: Field): T = {
     if (context.isDefined && classOf[Enumeration#Value].isAssignableFrom(context.get)) {
       println("object = " + getEnumObjectClass(context.get.asInstanceOf[Class[Enumeration#Value]], parent))
-      val v = toEnumValue(js.self, 
+      val v = toEnumValue(js.values, 
         getEnumObjectClass(context.get.asInstanceOf[Class[Enumeration#Value]], parent)).asInstanceOf[T]
       println(v + "/" + v.getClass)
       v
@@ -205,33 +212,33 @@ trait JsBean {
   }
 
   /**
-   * Convert the <tt>JsValue</tt> to an instance of the class <tt>context</tt>. Returns an instance of
+   * Convert the <tt>JValue</tt> to an instance of the class <tt>context</tt>. Returns an instance of
    * <tt>T</tt>.
    */
-  def fromJSON[T](js: JsValue, context: Option[Class[T]]): T = {
-    if (!js.isInstanceOf[JsObject] || !context.isDefined) {
+  def fromJSON[T](js: JValue, context: Option[Class[T]]): T = {
+    if (!js.isInstanceOf[JObject] || !context.isDefined) {
       js match {
-        case JsArray(l) => processJsValue(js).asInstanceOf[T]
-        case JsString(s) if (s endsWith "$") => 
+        case JArray(l) => processJsValue(js).asInstanceOf[T]
+        case JString(s) if (s endsWith "$") => 
           val h: Either[Exception, T] = processSingletonObject(s)
           h match {
             case Left(ex) => sys.error("Cannot make object for :" + s)
             case Right(obj) => obj.asInstanceOf[T]
           }
-        case _ => js.self.asInstanceOf[T]
+        case _ => js.values.asInstanceOf[T]
       }
     }
     else {
       // bean as a map from json
-      val bean = js.self.asInstanceOf[Map[JsString, JsValue]]
+      val bean = js.values.asInstanceOf[Map[JString, JValue]]
 
       // properties of the bean class
       // as a map to take care of mappings for JSONProperty annotation
       val props = getProps(context.get)
 
       // iterate on name/value pairs of the bean
-      val info = bean map {case (JsString(name), value) =>
-        value.self match {
+      val info = bean map {case (JString(name), value) =>
+        value.values match {
         
           // need to ignore properties in json that are not in props
           case x if (props.get(name).isDefined == false) =>
@@ -275,23 +282,23 @@ trait JsBean {
             ann match {
               case null => 
                 (Some(field), 
-                  x.map{ case y: JsValue => y.self
+                  x.map{ case y: JValue => y.values
                   })
 
               case a if a.value.isPrimitive == true => 
                 (Some(field), 
-                  x.map{case y: JsValue => 
+                  x.map{case y: JValue => 
                     // remember all numbers are converted to BigDecimal by the JSON parser
-                    if (y.isInstanceOf[JsNumber]) mkNum(y.self.asInstanceOf[BigDecimal], ann.value)
-                    else y.self
+                    if (y.isInstanceOf[JNumber]) mkNum(y.values, ann.value)
+                    else y.values
                   })
 
               case _ =>
                 (Some(field), 
-                  x.map{case y: JsValue => 
+                  x.map{case y: JValue => 
 
                     // list of Maps : can be objects or can be scala.collection.Map
-                    if (y.isInstanceOf[JsObject]) {
+                    if (y.isInstanceOf[JObject]) {
 
                       // use field to find out if it's a Map or an object
                       if (field.getGenericType.isInstanceOf[java.lang.reflect.ParameterizedType]) {
@@ -321,7 +328,7 @@ trait JsBean {
             }
 
           case x => 
-            (Some(context.get.getDeclaredField(props.get(name).get)), value.self)
+            (Some(context.get.getDeclaredField(props.get(name).get)), value.values)
         }
       }
 
@@ -372,6 +379,12 @@ trait JsBean {
         }
       }
     }
+  }
+
+  private def mkNumJ(v: JNumber, c: Class[_]) = v match {
+    case JDouble(n) => mkNum(n, c)
+    case JDecimal(n) => mkNum(n, c)
+    case JInt(n) => mkNum(n, c)
   }
 
   private def getObject[T](fqn: String, clazz: Class[T]) = getObjectFor[T](fqn)

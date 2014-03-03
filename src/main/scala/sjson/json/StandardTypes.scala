@@ -1,17 +1,17 @@
 package sjson
 package json
 
-import dispatch.classic.json._
+import org.json4s.JsonAST._
 import JsonSerialization._
 
 trait BasicTypes extends Protocol {
   implicit def optionFormat[T](implicit fmt : Format[T]) : Format[Option[T]] = new Format[Option[T]] {
     def writes(ot: Option[T]) = ot match {
       case Some(t) => tojson(t)
-      case None => JsNull
+      case None => JNull
     }
-    def reads(json: JsValue) = json match {
-      case JsNull => None
+    def reads(json: JValue) = json match {
+      case JNull => None
       case x => Some(fromjson[T](x))
     }
   }
@@ -25,8 +25,8 @@ trait BasicTypes extends Protocol {
       fmt${j}: Format[T${j}]<#if i != j>,</#if>
     </#list>
     ): Format[${typeName}] = new Format[${typeName}]{
-      def reads (json: JsValue): ${typeName} = {
-        val JsArray(<#list 1..i as j>e${j}::</#list> Nil) = json
+      def reads (json: JValue): ${typeName} = {
+        val JArray(<#list 1..i as j>e${j}::</#list> Nil) = json
         (
     <#list 1..i as j>
     fromjson[T${j}](e${j})<#if i != j>,</#if>
@@ -34,7 +34,7 @@ trait BasicTypes extends Protocol {
         )
       }
       def writes(tuple: ${typeName}) = tuple match {
-        case (<#list 1..i as j>t${j}<#if i != j>,</#if></#list>) => JsArray(List(
+        case (<#list 1..i as j>t${j}<#if i != j>,</#if></#list>) => JArray(List(
       <#list 1..i as j>tojson(t${j})(fmt${j})<#if i != j>,</#if></#list>))
         case _ => throw new RuntimeException("Tuple" + ${i} + " expected")
       }
@@ -45,17 +45,17 @@ trait BasicTypes extends Protocol {
 trait CollectionTypes extends BasicTypes with Generic {
 
   implicit def listFormat[T](implicit fmt : Format[T]) : Format[List[T]] = new Format[List[T]] {
-    def writes(ts: List[T]) = JsArray(ts.map(t => tojson(t)(fmt)))
-    def reads(json: JsValue) = json match {
-      case JsArray(ts) => ts.map(t => fromjson(t)(fmt))
+    def writes(ts: List[T]) = JArray(ts.map(t => tojson(t)(fmt)))
+    def reads(json: JValue) = json match {
+      case JArray(ts) => ts.map(t => fromjson(t)(fmt))
       case _ => throw new RuntimeException("List expected")
     }
   }
 
   implicit def seqFormat[T](implicit fmt : Format[T]) : Format[Seq[T]] = new Format[Seq[T]] {
-    def writes(ts: Seq[T]) = JsArray(ts.toList.map(t => tojson(t)(fmt)))
-    def reads(json: JsValue) = json match {
-      case JsArray(ts) => ts.map(t => fromjson(t)(fmt))
+    def writes(ts: Seq[T]) = JArray(ts.toList.map(t => tojson(t)(fmt)))
+    def reads(json: JValue) = json match {
+      case JArray(ts) => ts.map(t => fromjson(t)(fmt))
       case _ => throw new RuntimeException("Seq expected")
     }
   }
@@ -63,18 +63,18 @@ trait CollectionTypes extends BasicTypes with Generic {
   import scala.reflect.runtime.universe._
   import scala.reflect.{ClassTag, classTag}
   implicit def arrayFormat[T](implicit fmt : Format[T], mf: ClassTag[T]) : Format[Array[T]] = new Format[Array[T]] {
-    def writes(ts: Array[T]) = JsArray((ts.map(t => tojson(t)(fmt))).toList)
-    def reads(json: JsValue) = json match {
-      case JsArray(ts) => listToArray(ts.map(t => fromjson(t)(fmt)))
+    def writes(ts: Array[T]) = JArray((ts.map(t => tojson(t)(fmt))).toList)
+    def reads(json: JValue) = json match {
+      case JArray(ts) => listToArray(ts.map(t => fromjson(t)(fmt)))
       case _ => throw new RuntimeException("Array expected")
     }
   }
   def listToArray[T: ClassTag](ls: List[T]): Array[T] = ls.toArray
 
   implicit def mapFormat[K, V](implicit fmtk: Format[K], fmtv: Format[V]) : Format[Map[K, V]] = new Format[Map[K, V]] {
-    def writes(ts: Map[K, V]) = JsObject(ts.map{case (k, v) => ((tojson(k.toString)).asInstanceOf[JsString], tojson(v)(fmtv))})
-    def reads(json: JsValue) = json match {
-      case JsObject(m) => Map() ++ m.map{case (k, v) => (fromjson[K](k)(fmtk), fromjson[V](v)(fmtv))}
+    def writes(ts: Map[K, V]) = JObject(ts.map{case (k, v) => ((tojson(k.toString)).asInstanceOf[JString], tojson(v)(fmtv))})
+    def reads(json: JValue) = json match {
+      case JObject(m) => Map() ++ m.map{case (k, v) => (fromjson[K](k)(fmtk), fromjson[V](v)(fmtv))}
       case _ => throw new RuntimeException("Map expected")
     }
   }
@@ -94,17 +94,21 @@ trait CollectionTypes extends BasicTypes with Generic {
 
 trait StandardTypes extends CollectionTypes {
   implicit object BigIntFormat extends Format[BigInt] {
-    def writes(o: BigInt) = JsValue.apply(o)
-    def reads(json: JsValue) = json match {
-      case JsNumber(n) => n.toBigInt
+    def writes(o: BigInt) = JInt(o)
+    def reads(json: JValue) = json match {
+      case JDouble(n) => n.toBigInt
+      case JDecimal(n) => n.toBigInt
+      case JInt(n) => n
       case _ => throw new RuntimeException("BigInt expected")
     }
   }
 
   implicit object BigDecimalFormat extends Format[BigDecimal] {
-    def writes(o: BigDecimal) = JsValue.apply(o)
-    def reads(json: JsValue) = json match {
-      case JsNumber(n) => n
+    def writes(o: BigDecimal) = JDecimal(o)
+    def reads(json: JValue) = json match {
+      case JDouble(n) => n
+      case JDecimal(n) => n
+      case JInt(n) => BigDecimal(n)
       case _ => throw new RuntimeException("BigDecimal expected")
     }
   }

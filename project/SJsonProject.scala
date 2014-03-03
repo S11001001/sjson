@@ -18,7 +18,7 @@ object SJsonProject extends Build
     libraryDependencies <++= scalaVersion(sv =>
         Seq(
           "org.scala-lang"    %  "scala-reflect"         % sv,
-          "net.databinder"    %% "dispatch-json"         % "0.8.9",
+          "org.json4s"        %% "json4s-ast"            % "3.2.7",
           "commons-io"        %  "commons-io"            % "1.4",
           "org.objenesis"     %  "objenesis"             % "1.2",
           "junit"             %  "junit"                 % "4.11"  % "test",

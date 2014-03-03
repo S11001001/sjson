@@ -6,7 +6,7 @@ import org.scalatest.matchers.ShouldMatchers
 import org.scalatest.junit.JUnitRunner
 import org.junit.runner.RunWith
 import java.util.Calendar
-import dispatch.classic.json._
+import org.json4s.JsonAST._
 import TestBeans._
 
 @RunWith(classOf[JUnitRunner])

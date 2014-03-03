@@ -12,7 +12,7 @@ import TestBeans._
 
 @RunWith(classOf[JUnitRunner])
 class JsonSpec extends FunSpec with ShouldMatchers {
-  import dispatch.classic.json._
+  import org.json4s.JsonAST._
   import Js._
   
   implicit def ignoreProps = List[String]("class")
@@ -23,9 +23,9 @@ class JsonSpec extends FunSpec with ShouldMatchers {
   val jsAddr = Js(jsBean.toJSON(addr))
   
   val expected_map = Map(
-    JsString("city") -> JsString("kolkata"), 
-    JsString("street") -> JsString("garer math"), 
-    JsString("zip") -> JsString("700075")
+    JString("city") -> JString("kolkata"), 
+    JString("street") -> JString("garer math"), 
+    JString("zip") -> JString("700075")
   )
   
   val addresses = List[Address](
@@ -36,20 +36,20 @@ class JsonSpec extends FunSpec with ShouldMatchers {
   val jsPerson = Js(jsBean.toJSON(person))
   
   val expected_person_map = Map(
-    JsString("lastName") -> JsString("Ghosh"),
-    JsString("firstName") -> JsString("Debasish"),
-    JsString("addresses") -> 
-      JsArray(
+    JString("lastName") -> JString("Ghosh"),
+    JString("firstName") -> JString("Debasish"),
+    JString("addresses") -> 
+      JArray(
         List(
-          JsObject(Map(
-            JsString("street") -> JsString("10 Market Street"),
-            JsString("city") -> JsString("San Francisco, CA"),
-            JsString("zip") -> JsString("94111")
+          JObject(Map(
+            JString("street") -> JString("10 Market Street"),
+            JString("city") -> JString("San Francisco, CA"),
+            JString("zip") -> JString("94111")
           )),
-          JsObject(Map(
-            JsString("street") -> JsString("3300 Tamarac Drive"),
-            JsString("city") -> JsString("Denver, CO"),
-            JsString("zip") -> JsString("98301")
+          JObject(Map(
+            JString("street") -> JString("3300 Tamarac Drive"),
+            JString("city") -> JString("Denver, CO"),
+            JString("zip") -> JString("98301")
           ))
         )
       )
@@ -58,73 +58,73 @@ class JsonSpec extends FunSpec with ShouldMatchers {
   val b = new Book(100, "A Beautiful Mind", "012-456372")
   val jsBook = Js(jsBean.toJSON(b))
   val expected_book_map = Map(
-    JsString("id") -> JsNumber(100),
-    JsString("title") -> JsString("A Beautiful Mind"),
-    JsString("ISBN") -> JsString("012-456372")
+    JString("id") -> JsNumber(100),
+    JString("title") -> JString("A Beautiful Mind"),
+    JString("ISBN") -> JString("012-456372")
   )
   
   val j = new Journal(100, "IEEE Computer", "Alex Payne", "012-456372")
   val jsJournal = Js(jsBean.toJSON(j))
   val expected_journal_map = Map(
-    JsString("id") -> JsNumber(100),
-    JsString("title") -> JsString("IEEE Computer"),
-    JsString("author") -> JsString("Alex Payne")
+    JString("id") -> JsNumber(100),
+    JString("title") -> JString("IEEE Computer"),
+    JString("author") -> JString("Alex Payne")
   )
   
   val j_1 = new Journal_1(100, "IEEE Computer", "Alex Payne", null)
   val jsJournal_1 = Js(jsBean.toJSON(j_1))
   val expected_journal_1_map = Map(
-    JsString("id") -> JsNumber(100),
-    JsString("title") -> JsString("IEEE Computer"),
-    JsString("author") -> JsString("Alex Payne")
+    JString("id") -> JsNumber(100),
+    JString("title") -> JString("IEEE Computer"),
+    JString("author") -> JString("Alex Payne")
   )
   
   val j_2 = new Journal_2(100, "IEEE Computer", "Alex Payne", "012-456372")
   val jsJournal_2 = Js(jsBean.toJSON(j_2))
   val expected_journal_2_map = Map(
-    JsString("id") -> JsNumber(100),
-    JsString("title") -> JsString("IEEE Computer"),
-    JsString("author") -> JsString("Alex Payne"),
-    JsString("ISSN") -> JsString("012-456372")
+    JString("id") -> JsNumber(100),
+    JString("title") -> JString("IEEE Computer"),
+    JString("author") -> JString("Alex Payne"),
+    JString("ISSN") -> JString("012-456372")
   )
   
   val b_1 = new Book_1("Programming Scala", new Author("Odersky", "Martin"))
   val jsBook_1 = Js(jsBean.toJSON(b_1))
   val expected_book_1_map = Map(
-    JsString("title") -> JsString("Programming Scala"),
-    JsString("author") -> JsObject(Map(
-      JsString("lastName") -> JsString("Odersky"),
-      JsString("firstName") -> JsString("Martin")
+    JString("title") -> JString("Programming Scala"),
+    JString("author") -> JObject(Map(
+      JString("lastName") -> JString("Odersky"),
+      JString("firstName") -> JString("Martin")
     ))
   )
   
   describe("Json from simple Bean") {
     it("should equal expected_map") {
-      jsAddr.self should equal (expected_map)
+      jsAddr.values should equal (expected_map)
     }
     it("should equal expected_book_map") {
-      jsBook.self should equal (expected_book_map)
+      jsBook.values should equal (expected_book_map)
     }
     it("should match annotated property value for isbn") {
-      jsBook.self.asInstanceOf[Map[JsString, JsValue]].get(JsString("ISBN")).get.self should equal ("012-456372")
+      jsBook.values.asInstanceOf[Map[JString, JValue]].get(JString("ISBN")).get.values should equal ("012-456372")
     }
     it("should ignore annotated property and equal expected_journal_map") {
-      jsJournal.self should equal (expected_journal_map)
+      jsJournal.values should equal (expected_journal_map)
     }
     it("should ignore issn since it is null equal expected_journal_1_map") {
-      jsJournal_1.self should equal (expected_journal_1_map)
+      jsJournal_1.values should equal (expected_journal_1_map)
     }
     it("should not ignore issn since it is not null, but emit the changed property name and equal expected_journal_2_map") {
-      jsJournal_2.self should equal (expected_journal_2_map)
+      jsJournal_2.values should equal (expected_journal_2_map)
     }
   }
   
   describe("Json from bean with aggregate members") {
     it("should equal expected_person_map") {
-      jsPerson.self should equal (expected_person_map)
+      jsPerson.values should equal (expected_person_map)
     }
     it("should equal expected_book_1_map") {
-      jsBook_1.self should equal (expected_book_1_map)
+      jsBook_1.values should equal (expected_book_1_map)
     }
   }
   
@@ -285,7 +285,7 @@ class JsonSpec extends FunSpec with ShouldMatchers {
   describe("Generating bean with @JSONProperty annotation for a primitive data member") {
     val ins = Instrument(123, "IBM Securities", "Equity")
     val expected_js_str = """{"id":123,"name":"IBM Securities","TYPE":"Equity"}"""
-    var j: JsValue = null
+    var j: JValue = null
     
     it("should equal expected_js_str") {
       val js = jsBean.toJSON(ins)
@@ -305,7 +305,7 @@ class JsonSpec extends FunSpec with ShouldMatchers {
     val ins = Instrument(123, "IBM Securities", "Equity")
     val trd = Trade("ref-123", ins, 23400)
     val expected_js_str = """{"amount":23400,"Instrument":{"id":123,"name":"IBM Securities","TYPE":"Equity"},"ref":"ref-123"}"""
-    var j: JsValue = null
+    var j: JValue = null
     
     it("should equal expected_js_str") {
       val js = jsBean.toJSON(trd)
@@ -385,23 +385,23 @@ class JsonSpec extends FunSpec with ShouldMatchers {
   
   describe("Testing JSON suite of Twitter scala-json") {
     it("should match xml") {
-      val JsString(x) = JsValue.fromString("\"<xml>sucks</xml>\"")
+      val JString(x) = JValue.fromString("\"<xml>sucks</xml>\"")
       x should equal("<xml>sucks</xml>")
     }
     
     it("should parse strings in double slashes like the ones found in URLs") {
-      val JsArray(x) = JsValue.fromString("""["hey! http:\/\/www.lollerskates.com"]""")
-      x should equal(List(JsString("hey! http://www.lollerskates.com")))
+      val JArray(x) = JValue.fromString("""["hey! http:\/\/www.lollerskates.com"]""")
+      x should equal(List(JString("hey! http://www.lollerskates.com")))
     }
     
     it("should parse strings with quoted newline") {
-      val JsArray(x) = JsValue.fromString("""["hi\njerk"]""")
-      x should equal(List(JsString("hi\njerk")))
+      val JArray(x) = JValue.fromString("""["hi\njerk"]""")
+      x should equal(List(JString("hi\njerk")))
     }
     
     it("should parse strings with quoted quote") {
-      val JsArray(x) = JsValue.fromString("""["x\"x"]""")
-      x should equal(List(JsString("x\"x")))                                    
+      val JArray(x) = JValue.fromString("""["x\"x"]""")
+      x should equal(List(JString("x\"x")))                                    
     }
   }
 

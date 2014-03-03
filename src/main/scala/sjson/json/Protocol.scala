@@ -1,14 +1,14 @@
 package sjson
 package json
 
-import dispatch.classic.json._
+import org.json4s.JsonAST._
 
 trait Writes[T] {
-  def writes(o: T): JsValue
+  def writes(o: T): JValue
 }
 
 trait Reads[T] {
-  def reads(json: JsValue): T
+  def reads(json: JValue): T
 }
 
 trait Format[T] extends Writes[T] with Reads[T]

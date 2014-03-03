@@ -6,20 +6,20 @@ import DefaultProtocol._
 object Protocols {
   case class Person(lastName: String, firstName: String, age: Int)
   object Person extends DefaultProtocol {
-    import dispatch.classic.json._
+    import org.json4s.JsonAST._
     import JsonSerialization._
     implicit object PersonFormat extends Format[Person] {
-      def reads(json: JsValue): Person = json match {
-        case JsObject(m) =>
-          Person(fromjson[String](m(JsString("lastName"))), 
-            fromjson[String](m(JsString("firstName"))), fromjson[Int](m(JsString("age"))))
-        case _ => throw new RuntimeException("JsObject expected")
+      def reads(json: JValue): Person = json match {
+        case JObject(m) =>
+          Person(fromjson[String](m(JString("lastName"))), 
+            fromjson[String](m(JString("firstName"))), fromjson[Int](m(JString("age"))))
+        case _ => throw new RuntimeException("JObject expected")
       }
-      def writes(p: Person): JsValue =
-        JsObject(List(
-          (tojson("lastName").asInstanceOf[JsString], tojson(p.lastName)), 
-          (tojson("firstName").asInstanceOf[JsString], tojson(p.firstName)), 
-          (tojson("age").asInstanceOf[JsString], tojson(p.age)) ))
+      def writes(p: Person): JValue =
+        JObject(List(
+          (tojson("lastName").asInstanceOf[JString], tojson(p.lastName)), 
+          (tojson("firstName").asInstanceOf[JString], tojson(p.firstName)), 
+          (tojson("age").asInstanceOf[JString], tojson(p.age)) ))
     }
   }
 
@@ -48,22 +48,22 @@ object Protocols {
     val specialFlag = special
   }
   object Derived extends DefaultProtocol {
-    import dispatch.classic.json._
+    import org.json4s.JsonAST._
     import JsonSerialization._
     implicit object DerivedFormat extends Format[Derived] {
-      def reads(json: JsValue): Derived = {
+      def reads(json: JValue): Derived = {
         val b = fromjson[Base](json)
         json match {
-          case JsObject(m) =>
+          case JObject(m) =>
             new Derived(b.no, b.name, b.addresses,
-              fromjson[Boolean](m(JsString("specialFlag"))))
-          case _ => throw new RuntimeException("JsObject expected")
+              fromjson[Boolean](m(JString("specialFlag"))))
+          case _ => throw new RuntimeException("JObject expected")
         }
       }
-      def writes(a: Derived): JsValue = {
+      def writes(a: Derived): JValue = {
         val o = tojson(a: Base)
-        val JsObject(m) = o
-        JsObject(m ++ List((tojson("specialFlag").asInstanceOf[JsString], tojson(a.specialFlag))))
+        val JObject(m) = o
+        JObject(m ++ List((tojson("specialFlag").asInstanceOf[JString], tojson(a.specialFlag))))
       }
     }
   }
@@ -75,15 +75,15 @@ object Protocols {
   implicit val HolderFormat: Format[Holder] = wrap[Holder, List[String]]("item")(_.item, Holder)
 
   case class DoubleNanTest(price: Double)
-  import dispatch.classic.json._
+  import org.json4s.JsonAST._
   implicit val DoubleNanTestFormat: Format[DoubleNanTest] = new Format[DoubleNanTest] {
-    def reads(json: JsValue): DoubleNanTest = json match {
-      case JsString("Double.NaN") => DoubleNanTest(scala.Double.NaN)
+    def reads(json: JValue): DoubleNanTest = json match {
+      case JString("Double.NaN") => DoubleNanTest(scala.Double.NaN)
       case JsNumber(n) => DoubleNanTest(n.doubleValue)
       case _ => sys.error("Invalid DoubleNanTest")
     }
-    def writes(a: DoubleNanTest): JsValue = a.price match {
-      case x if x equals scala.Double.NaN => JsString("Double.NaN")
+    def writes(a: DoubleNanTest): JValue = a.price match {
+      case x if x equals scala.Double.NaN => JString("Double.NaN")
       case x => JsNumber(BigDecimal.valueOf(x))
     }
   }
@@ -93,17 +93,17 @@ object Protocols {
     asProduct3("street", "city", "zip")(AddressWithOptionalCity)(AddressWithOptionalCity.unapply(_).get)
 
   // example for inheritance and case objects
-  import dispatch.classic.json._
+  import org.json4s.JsonAST._
   trait HttpType
   implicit val HttpTypeFormat: Format[HttpType] = new Format[HttpType] {
-    def reads(json: JsValue): HttpType = json match {
-      case JsString("Get") => Get
-      case JsString("Post") => Post
+    def reads(json: JValue): HttpType = json match {
+      case JString("Get") => Get
+      case JString("Post") => Post
       case _ => sys.error("Invalid HttpType")
     }
-    def writes(a: HttpType): JsValue = a match {
-      case Get => JsString("Get")
-      case Post => JsString("Post")
+    def writes(a: HttpType): JValue = a match {
+      case Get => JString("Get")
+      case Post => JString("Post")
     }
   }
 
@@ -123,16 +123,16 @@ object Protocols {
   object JobStart extends DefaultProtocol {
     import JsonSerialization._
     implicit object JobStartFormat extends Format[JobStart] {
-      def reads(json: JsValue): JobStart = json match {
-        case JsObject(m) =>
-          JobStart(fromjson[String](m(JsString("name"))), 
-            WeekDay.withName(fromjson[String](m(JsString("start")))))
-        case _ => throw new RuntimeException("JsObject expected")
+      def reads(json: JValue): JobStart = json match {
+        case JObject(m) =>
+          JobStart(fromjson[String](m(JString("name"))), 
+            WeekDay.withName(fromjson[String](m(JString("start")))))
+        case _ => throw new RuntimeException("JObject expected")
       }
-      def writes(p: JobStart): JsValue =
-        JsObject(List(
-          (tojson("name").asInstanceOf[JsString], tojson(p.name)), 
-          (tojson("start").asInstanceOf[JsString], tojson(p.start.toString)))) 
+      def writes(p: JobStart): JValue =
+        JObject(List(
+          (tojson("name").asInstanceOf[JString], tojson(p.name)), 
+          (tojson("start").asInstanceOf[JString], tojson(p.start.toString)))) 
     }
   }
 
@@ -147,16 +147,16 @@ object Protocols {
   object SubUnit extends DefaultProtocol {
     import JsonSerialization._
     implicit object SubUnitFormat extends Format[SubUnit] {
-      def reads(json: JsValue): SubUnit = json match {
-        case j@JsObject(m) => m.keys.size match {
+      def reads(json: JValue): SubUnit = json match {
+        case j@JObject(m) => m.keys.size match {
           case 2 => fromjson[Employee](j)
           case _ => fromjson[Dept](j)
         }
 
-        case _ => throw new RuntimeException("JsObject expected")
+        case _ => throw new RuntimeException("JObject expected")
       }
 
-      def writes(s: SubUnit): JsValue = s match {
+      def writes(s: SubUnit): JValue = s match {
         case d: Dept => tojson(d)
         case e: Employee => tojson(e)
       }
@@ -172,27 +172,27 @@ object Protocols {
 
   case class P(lastName: String, firstName: String, age: Option[Int] = None)
   object P extends DefaultProtocol {
-    import dispatch.classic.json._
+    import org.json4s.JsonAST._
     import JsonSerialization._
     implicit object PFormat extends Format[P] {
-      def reads(json: JsValue): P = json match {
-        case JsObject(m) =>
+      def reads(json: JValue): P = json match {
+        case JObject(m) =>
           P(
-            fromjson[String](m(JsString("lastName"))), 
-            fromjson[String](m(JsString("firstName"))), 
-            m.get(JsString("age")).map(fromjson[Option[Int]](_)).getOrElse(None))
-        case _ => throw new RuntimeException("JsObject expected")
+            fromjson[String](m(JString("lastName"))), 
+            fromjson[String](m(JString("firstName"))), 
+            m.get(JString("age")).map(fromjson[Option[Int]](_)).getOrElse(None))
+        case _ => throw new RuntimeException("JObject expected")
       }
-      def writes(p: P): JsValue =
+      def writes(p: P): JValue =
         p.age.map(a =>
-          JsObject(List(
-            (tojson("lastName").asInstanceOf[JsString], tojson(p.lastName)),
-            (tojson("firstName").asInstanceOf[JsString], tojson(p.firstName)),
-            (tojson("age").asInstanceOf[JsString], tojson(a)))))
+          JObject(List(
+            (tojson("lastName").asInstanceOf[JString], tojson(p.lastName)),
+            (tojson("firstName").asInstanceOf[JString], tojson(p.firstName)),
+            (tojson("age").asInstanceOf[JString], tojson(a)))))
         .getOrElse(
-          JsObject(List(
-            (tojson("lastName").asInstanceOf[JsString], tojson(p.lastName)),
-            (tojson("firstName").asInstanceOf[JsString], tojson(p.firstName)))))
+          JObject(List(
+            (tojson("lastName").asInstanceOf[JString], tojson(p.lastName)),
+            (tojson("firstName").asInstanceOf[JString], tojson(p.firstName)))))
     }
   }
 
@@ -206,7 +206,7 @@ object Protocols {
   case class DataGridResult (totalCount: String, success: Boolean, results: Seq[User])
 
   object DataGridResultProtocol extends DefaultProtocol {
-    import dispatch.classic.json._
+    import org.json4s.JsonAST._
     import JsonSerialization._
 
     implicit val UserFormat: Format[User] =
@@ -226,15 +226,15 @@ object Protocols {
   }
 
   object CC1 extends DefaultProtocol {
-    import dispatch.classic.json._
+    import org.json4s.JsonAST._
     import JsonSerialization._
 
     implicit object CC1Format extends Format[CC1] {
-      def reads(json: JsValue): CC1 = json match {
-        case JsObject(m) => CC1(fromjson[String](m(JsString("v")))) 
-        case _ => throw new RuntimeException("JsObject expected")
+      def reads(json: JValue): CC1 = json match {
+        case JObject(m) => CC1(fromjson[String](m(JString("v")))) 
+        case _ => throw new RuntimeException("JObject expected")
       }
-      def writes(c1: CC1): JsValue = JsObject(List((tojson("v").asInstanceOf[JsString], tojson(c1.v))))
+      def writes(c1: CC1): JValue = JObject(List((tojson("v").asInstanceOf[JString], tojson(c1.v))))
     }
   }
 }
